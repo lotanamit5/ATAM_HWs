@@ -1,56 +1,48 @@
-#.global _start
-.global main
-# A = 1,2,3,4,5    B = 4,5,6,7,8  ==> C = 1,2,3,4,5,6,7,8
+.global _start
+#.global main
 .section .text
-#_start:
-main:
-#i,j,
-
-#Init:
-lea array1, %rax
-lea array2, %rbx
-lea mergedArray, %rcx
-
-#double-loop 
-#check if A[i]==o
-#check if B[j]==o
-#add smaller if diff
+_start:
+#main:
+    lea array1, %eax
+    lea array2, %ebx
+    lea mergedArray, %ecx
+    mov $0, %edx
 loop_HW1:
-    mov (%rax), %r8d
+    mov (%eax), %r8d
     test %r8d, %r8d
     jz mov_B_HW1
     
-    mov (%rbx), %r9d
+    mov (%ebx), %r9d
     test %r9d, %r9d
     jz mov_A_HW1
     
+    cmp %r8d, %r9d
+    ja mov_B_HW1
     
 mov_A_HW1:
-    mov (%rcx), %r10d
-    cmp %r8d, %r10d
+    cmp %r8d, %edx #C[i+j]-A[i]
     jz nextA_HW1
-    add $4, %rcx
-    mov %r8d, (%rcx) 
+    mov %r8d, (%ecx) 
+    add $4, %ecx
+    mov %r8d, %edx
 nextA_HW1:          
-    add $4, %rax
+    add $4, %eax
     jmp loop_HW1
 
-#A[i]==0
-#if B[j]==0 jump to finish
-#else add from B if diff
-
 mov_B_HW1:
-    mov (%rbx), %r9d
+    mov (%ebx), %r9d
     test %r9d, %r9d
     jz finish_HW1
     
-    mov (%rcx), %r10d
-    cmp %r9d, %r10d
+    cmp %r9d, %edx #C[i+j]-B[j]
     jz nextB_HW1
-    add $4, %rcx
-    mov %r9d, (%rcx) 
+    mov %r9d, (%ecx) 
+    add $4, %ecx
+    mov %r9d, %edx
 nextB_HW1:          
-    add $4, %rbx
+    add $4, %ebx
     jmp loop_HW1
     
 finish_HW1:
+    movl $0, (%ecx)
+
