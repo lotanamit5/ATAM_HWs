@@ -1,8 +1,7 @@
 .global _start
-#.global main
+
 .section .text
 _start:
-#main:
     lea array1, %eax
     lea array2, %ebx
     lea mergedArray, %ecx

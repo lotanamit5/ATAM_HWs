@@ -2,10 +2,10 @@
 
 .section .text
 _start:
-mov $root, %rbx  # addr = root
-mov (%rbx), %rax  # val = *addr
-mov new_node, %rdx
-recursive_search:
+    mov $root, %rbx     # addr = root
+    mov (%rbx), %rax    # val = *addr
+    mov new_node, %rdx
+recursive_search_HW1:
     # if (val == 0 )
     cmp $0, %rax
     jnz cmp_HW1
@@ -30,5 +30,5 @@ left_son_HW1:
     
 loop_footer_HW1:
     mov (%rbx), %rax # *addr = val
-    jmp recursive_search
+    jmp recursive_search_HW1
 end_HW1:

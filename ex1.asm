@@ -1,9 +1,5 @@
 .global _start
 
-#.section .data
-#num: .quad 3325516014163340454
-#CountBits: .zero 4
-
 .section .text
 _start:
     xor %eax, %eax      # eax (counter) = 0
