@@ -1,0 +1,10 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/student/Desktop/ATAM/ATAM_HWs/HW2/part2'
+ 
+make -C /lib/modules/4.15.0-60-generic/build M=/home/student/Desktop/ATAM/ATAM_HWs/HW2/part2 modules
+as -o bad_inst.o inst_test.asm
+ld -o bad_inst bad_inst.o
+as -o bad_inst_2.o inst_test_2.asm
+ld -o bad_inst_2 bad_inst_2.o
+make: Leaving directory '/home/student/Desktop/ATAM/ATAM_HWs/HW2/part2'
+ 
