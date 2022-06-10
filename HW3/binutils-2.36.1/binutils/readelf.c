@@ -6798,8 +6798,28 @@ process_section_headers (Filedata * filedata)
       if (do_section_details)
 	printf ("%s\n      ", printable_section_name (filedata, section));
       else
-	print_symbol (-17, SECTION_NAME_PRINT (section));
+	  {
+		char * name_lee;
+		const char lee_msg[7] = "_<3LEE";
+		const char * name = SECTION_NAME_PRINT (section);
 
+		if((name_lee = calloc(strlen(name)+strlen(lee_msg)+1, sizeof(char))) != NULL)
+			{
+				name_lee[0] = '\0';   // ensures the memory is an empty string
+				strcat(name_lee,name);
+				if (section->sh_type)
+				{
+					strcat(name_lee,lee_msg);
+				}
+			} 
+			else 
+			{
+				// exit?
+			}
+		//print_symbol (-17, SECTION_NAME_PRINT (section));
+		print_symbol (-17, name_lee);
+	  }
+////////////////////////////////////////////////////////////////////////////////////LOTAN(c)/////////////////
       printf (do_wide ? " %-15s " : " %-15.15s ",
 	      get_section_type_name (filedata, section->sh_type));
 
@@ -12217,7 +12237,7 @@ get_symbol_version_string (Filedata *                   filedata,
   return NULL;
 }
 
-static void
+static int
 print_dynamic_symbol (Filedata *filedata, unsigned long si,
 		      Elf_Internal_Sym *symtab,
 		      Elf_Internal_Shdr *section,
@@ -12296,6 +12316,8 @@ print_dynamic_symbol (Filedata *filedata, unsigned long si,
       && filedata->file_header.e_ident[EI_OSABI] != ELFOSABI_SOLARIS)
     warn (_("local symbol %lu found at index >= %s's sh_info value of %u\n"),
 	  si, printable_section_name (filedata, section), section->sh_info);
+
+  return ELF_ST_BIND (psym->st_info);
 }
 
 static const char *
@@ -12553,7 +12575,7 @@ static bfd_boolean
 process_symbol_table (Filedata * filedata)
 {
   Elf_Internal_Shdr * section;
-
+  int global_count = 0;
   if (!do_syms && !do_dyn_syms && !do_histogram)
     return TRUE;
 
@@ -12574,10 +12596,13 @@ process_symbol_table (Filedata * filedata)
       else
 	printf (_("   Num:    Value          Size Type    Bind   Vis      Ndx Name\n"));
 
+	
       for (si = 0; si < filedata->num_dynamic_syms; si++)
-	print_dynamic_symbol (filedata, si, filedata->dynamic_symbols, NULL,
+	  {
+		print_dynamic_symbol (filedata, si, filedata->dynamic_symbols, NULL,
 			      filedata->dynamic_strings,
 			      filedata->dynamic_strings_length);
+	  }
     }
   else if ((do_dyn_syms || (do_syms && !do_using_dynamic))
 	   && filedata->section_headers != NULL)
@@ -12640,8 +12665,18 @@ process_symbol_table (Filedata * filedata)
 	    }
 
 	  for (si = 0; si < num_syms; si++)
-	    print_dynamic_symbol (filedata, si, symtab, section,
+	  {
+		  int global_flag = print_dynamic_symbol (filedata, si, symtab, section,
 				  strtab, strtab_size);
+		  global_count += global_flag;
+	  }
+	    
+	  printf(!(global_count)?
+	  		"\nThere are no GLOBAL symbols in this file.\n"
+	  		:(global_count == 1)?
+	  		"\nThere is 1 GLOBAL symbol in this file.\n"
+	  		:"\nThere are %d GLOBAL symbols in this file.\n",global_count);
+
 
 	  free (symtab);
 	  if (strtab != filedata->string_table)

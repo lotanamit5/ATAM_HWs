@@ -1,0 +1,14 @@
+
+Symbol table '.symtab' contains 9 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
+     1: 0000000000000000     0 SECTION LOCAL  DEFAULT    1 
+     2: 0000000000000000     0 SECTION LOCAL  DEFAULT    3 
+     3: 0000000000000000     0 SECTION LOCAL  DEFAULT    4 
+     4: 0000000000000008     0 NOTYPE  LOCAL  DEFAULT    3 msg
+     5: 000000000000000e     0 NOTYPE  LOCAL  DEFAULT    3 endmsg
+     6: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT    1 _start
+     7: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT    3 buff
+     8: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT  UND ending
+
+There are 3 GLOBAL symbols in this file.
