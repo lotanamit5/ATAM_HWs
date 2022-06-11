@@ -1,4 +1,4 @@
-.extern _start
+.extern _start, buff
 
 .global hook, hijack
 
@@ -8,26 +8,44 @@ endmsg:
 
 .section .text
 hook:
+  push %r8
   lea _start(%rip), %r8
   add $0x1e, %r8            # r8 = &start of NOPs in a.o
-  lea hijack(%rip), %r9     # r9 = &hijack
-  # 41 ff d1 <-> call *r9 
-  movb $0x41, (%r8)
-  inc %r8
-  movb $0xff, (%r8)
-  inc %r8
-  movb $0xd1, (%r8)         # "call *r9" = "call hijack" was injected to a.o's text section
-
-# Jump to _start
-  jmp _start  
+  # c3 <-> return 
+  movb $0xc3, (%r8)         # "return" was injected to a.o's text section
+  pop %r8
   
-hijack:
-  pushq %rbp
-  movq %rsp, %rbp
-  mov $0x1, %rax
+  call _start               # Will return after first print
+  
+hijack:  
+  push %rax                 # Saving all caller-saved regs 
+  push %rdi
+  push %rsi
+  push %rdx
+  push %rcx
+  push %r8
+  push %r9
+  push %r10
+  push %r11
+
+  mov $0x1, %rax            # Printing our msg
   mov $0x1, %rdi
-  mov $msg, %rsi
+  lea msg(%rip), %rsi
   mov $endmsg - msg, %rdx
   syscall
-  leave
-  ret
+  
+  lea _start(%rip), %r8
+  add $0x26, %r8            
+  mov %r8, buff             # (buff) = &end of NOPs in a.o
+
+  pop %r11                  # Restoring state
+  pop %r10
+  pop %r9
+  pop %r8
+  pop %rcx
+  pop %rdx
+  pop %rsi
+  pop %rdi
+  pop %rax
+
+  jmp *buff                 # Use a.o data to jump back to code
