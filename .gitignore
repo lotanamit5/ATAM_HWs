@@ -21,4 +21,5 @@ ili_utils.o
 modules.order
 .vscode/
 HW2/part1/.vscode/
+HW2/.vscode/
 HW2/.vscode/*.json
