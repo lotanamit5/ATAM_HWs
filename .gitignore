@@ -19,3 +19,6 @@ ili_handler.o
 ili_main.o
 ili_utils.o
 modules.order
+.vscode/
+HW2/part1/.vscode/
+HW2/.vscode/*.json
