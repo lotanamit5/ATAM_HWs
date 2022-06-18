@@ -1,4 +1,6 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+make: *** No rule to make target 'all'.  Stop.
+
 # GNU Make 4.1
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2014 Free Software Foundation, Inc.
@@ -6,7 +8,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu May 19 20:54:44 2022
+# Make data base, printed on Sat Jun 18 14:25:46 2022
 
 # Variables
 
@@ -35,11 +37,11 @@ GDMSESSION = xubuntu
 # default
 MAKE_VERSION := 4.1
 # makefile
-CURDIR := /home/student/Desktop/ATAM/ATAM_HWs/HW2
+CURDIR := /home/student/Desktop/ATAM/ATAM_HWs
 # makefile
 SHELL = /bin/sh
 # environment
-SNAP_DATA = /var/snap/code/97
+SNAP_DATA = /var/snap/code/99
 # environment
 GDM_LANG = en
 # environment
@@ -75,29 +77,29 @@ GLADE_PIXMAP_PATH = :
 # environment
 LESSOPEN = | /usr/bin/lesspipe %s
 # environment
-VSCODE_CWD = /home/student/Desktop/ATAM/ATAM_HWs/HW2/part2
+VSCODE_CWD = /home/student/Desktop/ATAM/ATAM_HWs/HW3
 # environment
 XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session0
 # environment
-GSETTINGS_SCHEMA_DIR = /snap/code/97/usr/share/glib-2.0/schemas
+GSETTINGS_SCHEMA_DIR = /snap/code/99/usr/share/glib-2.0/schemas
 # default
 MAKE_HOST := x86_64-pc-linux-gnu
 # environment
-PATH = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+PATH = /home/student/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
 # environment
 GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
 # environment
-SESSION_MANAGER = local/ubuntu18:@/tmp/.ICE-unix/1986,unix/ubuntu18:/tmp/.ICE-unix/1986
+SESSION_MANAGER = local/ubuntu18:@/tmp/.ICE-unix/2030,unix/ubuntu18:/tmp/.ICE-unix/2030
 # environment
 XDG_RUNTIME_DIR = /run/user/1000
 # environment
 GDK_PIXBUF_MODULE_FILE = /home/student/snap/code/common/.cache/gdk-pixbuf-loaders.cache
 # environment
-SNAP = /snap/code/97
+SNAP = /snap/code/99
 # environment
-WINDOWID = 67108867
+WINDOWID = 79691779
 # environment
-SNAP_VERSION = c3511e6c
+SNAP_VERSION = 30d9c6cd
 # environment
 XDG_MENU_PREFIX = xfce-
 # environment
@@ -107,7 +109,7 @@ DISABLE_WAYLAND = 1
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-GDK_PIXBUF_MODULEDIR = /snap/code/97/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+GDK_PIXBUF_MODULEDIR = /snap/code/99/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # environment
@@ -129,13 +131,13 @@ VSCODE_PIPE_LOGGING = true
 # environment
 SNAP_INSTANCE_KEY = 
 # environment
-PWD = /home/student/Desktop/ATAM/ATAM_HWs/HW2
+PWD = /home/student/Desktop/ATAM/ATAM_HWs
 # environment
 QT_QPA_PLATFORMTHEME = gtk2
 # environment
 XDG_SEAT = seat0
 # environment
-SSH_AGENT_PID = 1968
+SSH_AGENT_PID = 2012
 # environment
 ORIGINAL_XDG_CURRENT_DESKTOP = XFCE
 # environment
@@ -147,7 +149,7 @@ LESSCLOSE = /usr/bin/lesspipe %s %s
 # environment
 VSCODE_CLI = 1
 # environment
-VSCODE_CODE_CACHE_PATH = /home/student/.config/Code/CachedData/c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5
+VSCODE_CODE_CACHE_PATH = /home/student/.config/Code/CachedData/30d9c6cd9483b2cc586687151bcbcd635f373630
 # environment
 LOGNAME = student
 # environment
@@ -179,17 +181,17 @@ MAKE = $(MAKE_COMMAND)
 # default
 MAKECMDGOALS := all
 # environment
-SNAP_USER_DATA = /home/student/snap/code/97
+SNAP_USER_DATA = /home/student/snap/code/99
 # environment
 SHLVL = 1
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-36c36c95-1f17-411a-8164-977ed1f7d980.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-ab643385-9053-460a-8f5d-864360a39105.sock
 # environment
 XDG_SESSION_ID = c2
 # environment
 USER = student
 # environment
-SNAP_REVISION = 97
+SNAP_REVISION = 99
 # makefile
 .DEFAULT_GOAL := 
 # environment
@@ -207,7 +209,7 @@ LANGUAGE = en
 # environment
 XDG_SEAT_PATH = /org/freedesktop/DisplayManager/Seat0
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-62ee4e9e-1.67.2-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-62ee4e9e-1.68.1-main.sock
 # makefile
 MAKEFLAGS = pqrR
 # environment
@@ -251,19 +253,20 @@ LANG = C
 # environment
 TERM = xterm-256color
 # environment
-VSCODE_PID = 8378
+VSCODE_PID = 87286
 # variable set hash-table stats:
 # Load=121/1024=12%, Rehash=0, Collisions=14/143=10%
 
 # Pattern-specific Variable Values
+ 
 
 # No pattern-specific variable values.
 
 # Directories
 
-# . (device 2050, inode 305295): 5 files, no impossibilities.
+# . (device 2050, inode 280697): 9 files, no impossibilities.
 
-# 5 files, no impossibilities in 1 directories.
+# 9 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -277,9 +280,6 @@ all:
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has not been updated.
- 
-make: *** No rule to make target 'all'.  Stop.
-
 
 # Not a target:
 Makefile:
@@ -316,12 +316,12 @@ GNUmakefile:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 13 / storage = 110 B / avg = 8 B
-# current buf: size = 8162 B / used = 110 B / count = 13 / avg = 8 B
+# strcache buffers: 1 (0) / strings = 17 / storage = 130 B / avg = 7 B
+# current buf: size = 8162 B / used = 130 B / count = 17 / avg = 7 B
 
-# strcache performance: lookups = 16 / hit rate = 18%
+# strcache performance: lookups = 20 / hit rate = 15%
 # hash-table stats:
-# Load=13/8192=0%, Rehash=0, Collisions=1/16=6%
-# Finished Make data base on Thu May 19 20:54:44 2022
+# Load=17/8192=0%, Rehash=0, Collisions=1/20=5%
+# Finished Make data base on Sat Jun 18 14:25:46 2022
 
  
