@@ -1,0 +1,24 @@
+There are 7 section headers, starting at offset 0xf0:
+
+Section Headers:
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   NULL             0000000000000000  00000000
+       0000000000000000  0000000000000000           0     0     0
+  [ 1] .text_<3LEE       PROGBITS         0000000000000000  00000040
+       0000000000000000  0000000000000000  AX       0     0     1
+  [ 2] .data_<3LEE       PROGBITS         0000000000000000  00000040
+       0000000000000004  0000000000000000  WA       0     0     1
+  [ 3] .bss_<3LEE        NOBITS           0000000000000000  00000044
+       0000000000000000  0000000000000000  WA       0     0     1
+  [ 4] .symtab_<3LEE     SYMTAB           0000000000000000  00000048
+       0000000000000078  0000000000000018           5     5     8
+  [ 5] .strtab_<3LEE     STRTAB           0000000000000000  000000c0
+       0000000000000003  0000000000000000           0     0     1
+  [ 6] .shstrtab_<3LEE   STRTAB           0000000000000000  000000c3
+       000000000000002c  0000000000000000           0     0     1
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  l (large), p (processor specific)

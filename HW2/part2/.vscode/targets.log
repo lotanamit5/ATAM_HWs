@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu May 19 20:32:55 2022
+# Make data base, printed on Fri May 20 07:49:38 2022
 
 # Variables
 
@@ -75,7 +75,7 @@ GLADE_PIXMAP_PATH = :
 # environment
 LESSOPEN = | /usr/bin/lesspipe %s
 # environment
-VSCODE_CWD = /home/student/Desktop/ATAM/ATAM_HWs/HW2
+VSCODE_CWD = /home/student/Desktop/ATAM/ATAM_HWs/HW2/part2
 # environment
 XDG_SESSION_PATH = /org/freedesktop/DisplayManager/Session0
 # environment
@@ -185,7 +185,7 @@ SNAP_USER_DATA = /home/student/snap/code/97
 # environment
 SHLVL = 1
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-7ab3708e-31e5-4fdc-a26e-f6479a52c88b.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-7914d8a2-f550-45a6-8809-44851fb4fd3e.sock
 # environment
 XDG_SESSION_ID = c2
 # environment
@@ -255,7 +255,7 @@ LANG = C
 # environment
 TERM = xterm-256color
 # environment
-VSCODE_PID = 6798
+VSCODE_PID = 10064
 # variable set hash-table stats:
 # Load=123/1024=12%, Rehash=0, Collisions=16/160=10%
 
@@ -394,6 +394,6 @@ bad_inst: inst_test.asm
 # strcache performance: lookups = 41 / hit rate = 43%
 # hash-table stats:
 # Load=23/8192=0%, Rehash=0, Collisions=1/41=2%
-# Finished Make data base on Thu May 19 20:32:55 2022
+# Finished Make data base on Fri May 20 07:49:38 2022
 
  
