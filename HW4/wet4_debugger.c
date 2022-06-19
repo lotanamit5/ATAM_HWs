@@ -222,7 +222,6 @@ void run_counter_debugger(pid_t child_pid)
 
 void run_revivo_debugger(pid_t child_pid, long func_addr)
 {
-
 }
 
 int isExecutable(int fd)
@@ -253,6 +252,7 @@ int isGlobal(int fd, char *func_name)
 
 elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 {
+    Elf64_Sym prog_sym;
     int fd = open(prog_name, O_RDONLY);
     if (fd == -1)
         return ELF_OPEN_FAIL;
@@ -271,7 +271,9 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         close(fd);
         return ELF_UND;
     }
-    // FIND ADDRES
+    // FIND ADDRESS:
+    if (prog_sym.st_shndx != SHN_UNDEF)
+        *func_addr = prog_sym.st_value;
     *func_addr = 1;
     return ELF_SUCCESS;
 }
