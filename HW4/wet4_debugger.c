@@ -19,6 +19,9 @@
 #define MIN_ARG_C 3
 #define MAGIC_LENGTH 4
 #define ET_EXEC 2
+#define SHT_SYMTAB 0x2
+#define SHT_STRTAB 0x3
+#define STB_GLOBAL 1
 
 typedef enum
 {
@@ -224,56 +227,145 @@ void run_revivo_debugger(pid_t child_pid, long func_addr)
 {
 }
 
-int isExecutable(int fd)
+int isExecutable(int fd, Elf64_Ehdr *hdr)
 {
-    Elf64_Ehdr hdr;
-    if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr))
+    if (read(fd, hdr, sizeof(*hdr)) != sizeof(*hdr))
     {
         // Could not read elf header
         return 0;
     }
-    if (memcmp("\x7fELF", &hdr, MAGIC_LENGTH))
+    if (memcmp("\x7fELF", hdr, MAGIC_LENGTH))
     {
         // Sanity check- Magic does not match
         return 0;
     }
-    return hdr.e_type == ET_EXEC;
+    return hdr->e_type == ET_EXEC;
 }
 
-int funcExist(int fd, char *func_name)
+int funcExist(int fd, Elf64_Ehdr *hdr, Elf64_Shdr *symtab_hdr, Elf64_Shdr *strtab_hdr,
+              Elf64_Sym *symbol_entry, char *func_name)
 {
+    Elf64_Shdr shdr_str_tbl, buf;
+    int shdr_str_index, shdr_size, num_sections, num_symbols;
+    char *section_names, *symbol_names;
+    int i = 0, found_symtab = 0, found_strtab = 0;
+    num_sections = hdr->e_shnum;
+
+    // Go to section header table
+    lseek(fd, hdr->e_shoff, SEEK_SET);
+
+    // Get section header string table section header
+    shdr_str_index = hdr->e_shstrndx;
+    shdr_size = sizeof(Elf64_Shdr);
+    lseek(fd, shdr_str_index * shdr_size, SEEK_CUR);
+    if (read(fd, &shdr_str_tbl, sizeof(shdr_str_tbl)) != sizeof(shdr_str_tbl))
+    {
+        // Could not read section header
+        return 0;
+    }
+
+    // Get section header string table as string
+    lseek(fd, shdr_str_tbl.sh_offset, SEEK_SET);
+    section_names = (char *)malloc(shdr_str_tbl.sh_size);
+    if (read(fd, &section_names, sizeof(section_names)) != sizeof(section_names))
+    {
+        // Could not read section
+        free(section_names);
+        return 0;
+    }
+
+    // Get symtab and strtab headers
+    lseek(fd, hdr->e_shoff, SEEK_SET);
+    for (int i = 0; i < num_sections; i++)
+    {
+        if (read(fd, &buf, sizeof(buf)) != sizeof(buf))
+        {
+            // Could not read section header
+            return 0;
+        }
+        if (!strcmp(section_names + buf.sh_name, ".symtab"))
+        {
+            found_symtab = 1;
+            memcpy(symtab_hdr, &buf, sizeof(Elf64_Shdr));
+        }
+        if (!strcmp(section_names + buf.sh_name, ".strtab"))
+        {
+            found_strtab = 1;
+            memcpy(strtab_hdr, &buf, sizeof(Elf64_Shdr));
+        }
+        if (found_symtab && found_strtab)
+            break;
+    }
+
+    // Get strtab as string
+    lseek(fd, strtab_hdr->sh_offset, SEEK_SET);
+    symbol_names = (char *)malloc(strtab_hdr->sh_size);
+    if (read(fd, &symbol_names, sizeof(symbol_names)) != sizeof(symbol_names))
+    {
+        // Could not read section
+        free(section_names);
+        free(symbol_names);
+        return 0;
+    }
+
+    // Go to symbol table
+    lseek(fd, symtab_hdr->sh_offset, SEEK_SET);
+
+    // Look for func's symbol
+    num_symbols = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
+    for (int i = 0; i < num_symbols; i++)
+    {
+        if (read(fd, symbol_entry, sizeof(*symbol_entry)) != sizeof(*symbol_entry))
+        {
+            // Could not read symbol entry
+            return 0;
+        }
+        if (!strcmp(symbol_names + symbol_entry->st_name, func_name))
+        {
+            // The symbol exist
+            free(section_names);
+            free(symbol_names);
+            return 1;
+        }
+    }
+    // The symbol is not in the symtab
+    free(section_names);
+    free(symbol_names);
     return 0;
 }
 
-int isGlobal(int fd, char *func_name)
+int isGlobal(int fd, Elf64_Sym *symbol_entry)
 {
-    return 0;
+    return ELF64_ST_BIND(symbol_entry->st_info) == STB_GLOBAL;
 }
 
 elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 {
-    Elf64_Sym prog_sym;
+    Elf64_Ehdr hdr;
+    Elf64_Shdr symtab_hdr;
+    Elf64_Shdr strtab_hdr;
+    Elf64_Sym symbol_entry;
     int fd = open(prog_name, O_RDONLY);
     if (fd == -1)
         return ELF_OPEN_FAIL;
-    if (!isExecutable(fd))
+    if (!isExecutable(fd, &hdr))
     {
         close(fd);
         return ELF_NOT_EXECUTABLE;
     }
-    if (!funcExist(fd, func_name))
+    if (!funcExist(fd, &hdr, &symtab_hdr, &strtab_hdr, &symbol_entry, func_name))
     {
         close(fd);
         return ELF_NOT_FOUND;
     }
-    if (!isGlobal(fd, func_name))
+    if (!isGlobal(fd, &symbol_entry))
     {
         close(fd);
         return ELF_UND;
     }
     // FIND ADDRESS:
-    if (prog_sym.st_shndx != SHN_UNDEF)
-        *func_addr = prog_sym.st_value;
+    if (symbol_entry.st_shndx != SHN_UNDEF)
+        *func_addr = symbol_entry.st_value;
     *func_addr = 1;
     return ELF_SUCCESS;
 }
