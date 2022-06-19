@@ -227,74 +227,54 @@ void run_revivo_debugger(pid_t child_pid, long func_addr)
 {
 }
 
-int isExecutable(int fd, Elf64_Ehdr *hdr)
+int TryLoadHdr(int fd, Elf64_Ehdr *hdr)
 {
-    if (read(fd, hdr, sizeof(*hdr)) != sizeof(*hdr))
-    {
-        // Could not read elf header
-        return 0;
-    }
-    if (memcmp("\x7fELF", hdr, MAGIC_LENGTH))
-    {
-        // Sanity check- Magic does not match
-        return 0;
-    }
+    return (read(fd, hdr, sizeof(*hdr)) == sizeof(*hdr) && // Could not read elf header
+            !memcmp("\x7fELF", hdr, MAGIC_LENGTH));        // Sanity check- Magic does not match
+}
+
+int isExecutable(Elf64_Ehdr *hdr)
+{
     return hdr->e_type == ET_EXEC;
 }
 
+int TryGetSectionNames(int fd, Elf64_Ehdr *hdr, char *section_names_to_fill)
+{
+    Elf64_Shdr str_tbl;
+    // Go to section header table
+    lseek(fd, hdr->e_shoff, SEEK_SET);
+    // Get section header string table section header
+    lseek(fd, hdr->e_shstrndx * sizeof(Elf64_Shdr), SEEK_CUR);
+    if (read(fd, &str_tbl, sizeof(str_tbl)) != sizeof(str_tbl))
+        return 0;
+
+    // Get section header string table as string
+    lseek(fd, str_tbl.sh_offset, SEEK_SET);
+    section_names_to_fill = (char *)malloc(str_tbl.sh_size);
+    if (read(fd, &section_names_to_fill, sizeof(section_names_to_fill)) != sizeof(section_names_to_fill))
+    {
+        // Could not read section
+        free(section_names_to_fill);
+        return 0;
+    }
+    return 1;
+}
 int funcExist(int fd, Elf64_Ehdr *hdr, Elf64_Shdr *symtab_hdr, Elf64_Shdr *strtab_hdr,
               Elf64_Sym *symbol_entry, char *func_name)
 {
-    Elf64_Shdr shdr_str_tbl, buf;
-    int shdr_str_index, shdr_size, num_sections, num_symbols;
+    int num_symbols;
     char *section_names, *symbol_names;
-    int i = 0, found_symtab = 0, found_strtab = 0;
-    num_sections = hdr->e_shnum;
 
-    // Go to section header table
-    lseek(fd, hdr->e_shoff, SEEK_SET);
-
-    // Get section header string table section header
-    shdr_str_index = hdr->e_shstrndx;
-    shdr_size = sizeof(Elf64_Shdr);
-    lseek(fd, shdr_str_index * shdr_size, SEEK_CUR);
-    if (read(fd, &shdr_str_tbl, sizeof(shdr_str_tbl)) != sizeof(shdr_str_tbl))
-    {
-        // Could not read section header
-        return 0;
-    }
-
-    // Get section header string table as string
-    lseek(fd, shdr_str_tbl.sh_offset, SEEK_SET);
-    section_names = (char *)malloc(shdr_str_tbl.sh_size);
-    if (read(fd, &section_names, sizeof(section_names)) != sizeof(section_names))
-    {
-        // Could not read section
-        free(section_names);
-        return 0;
-    }
+    if (!TryGetSectionNames(fd, hdr, &section_names))
+        return 0; // could not load section header string table
 
     // Get symtab and strtab headers
-    lseek(fd, hdr->e_shoff, SEEK_SET);
-    for (int i = 0; i < num_sections; i++)
+    if (!TryGetSectionHeader(fd, hdr, section_names, ".symtab", symtab_hdr) ||
+        !TryGetSectionHeader(fd, hdr, section_names, ".strtab", strtab_hdr))
     {
-        if (read(fd, &buf, sizeof(buf)) != sizeof(buf))
-        {
-            // Could not read section header
-            return 0;
-        }
-        if (!strcmp(section_names + buf.sh_name, ".symtab"))
-        {
-            found_symtab = 1;
-            memcpy(symtab_hdr, &buf, sizeof(Elf64_Shdr));
-        }
-        if (!strcmp(section_names + buf.sh_name, ".strtab"))
-        {
-            found_strtab = 1;
-            memcpy(strtab_hdr, &buf, sizeof(Elf64_Shdr));
-        }
-        if (found_symtab && found_strtab)
-            break;
+        // Could not find symtab or strtab
+        free(section_names);
+        return 0;
     }
 
     // Get strtab as string
@@ -339,16 +319,43 @@ int isGlobal(int fd, Elf64_Sym *symbol_entry)
     return ELF64_ST_BIND(symbol_entry->st_info) == STB_GLOBAL;
 }
 
+int TryGetSectionHeader(int fd, Elf64_Ehdr* hdr, char *section_names, char *shdr_name, Elf64_Shdr *shdr_to_fill)
+{
+    Elf64_Shdr *current_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+    // Get symtab and strtab headers
+    lseek(fd, hdr->e_shoff, SEEK_SET);
+    int found = 0;
+    for (int i = 0; i < hdr->e_shnum; i++)
+    {
+        if (read(fd, current_shdr, sizeof(Elf64_Shdr)) != sizeof(Elf64_Shdr))
+            break; // Could not read section header
+        if (!strcmp(section_names + current_shdr->sh_name, shdr_name))
+        {
+            memcpy(shdr_to_fill, current_shdr, sizeof(Elf64_Shdr));
+            found = 1;
+            break;
+        }
+    }
+    free(current_shdr);
+    return found;
+}
+
 elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 {
     Elf64_Ehdr hdr;
     Elf64_Shdr symtab_hdr;
     Elf64_Shdr strtab_hdr;
     Elf64_Sym symbol_entry;
+
     int fd = open(prog_name, O_RDONLY);
     if (fd == -1)
         return ELF_OPEN_FAIL;
-    if (!isExecutable(fd, &hdr))
+    if (!TryLoadHdr(fd, &hdr))
+    {
+        close(fd);
+        return ELF_OPEN_FAIL;
+    }
+    if (!isExecutable(&hdr))
     {
         close(fd);
         return ELF_NOT_EXECUTABLE;
@@ -366,6 +373,10 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
     // FIND ADDRESS:
     if (symbol_entry.st_shndx != SHN_UNDEF)
         *func_addr = symbol_entry.st_value;
+    else
+    {
+        // TryGetSectionHeader(fd, hdr.e_shoff, hdr.e_shnum, )
+    }
     *func_addr = 1;
     return ELF_SUCCESS;
 }
