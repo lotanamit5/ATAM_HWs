@@ -39,10 +39,10 @@ finish_num:
   
   pushq %r10
   lea path(%rip), %rdi
-  # we are not using rax, rdi, rsi, rdx, rcx, r8-r11- so no need to backup
+    # we are not using rax, rdi, rsi, rdx, rcx, r8-r11- so no need to backup
   call atam_atol # (%rax) = n
-  
-  popq %r10      # %r10 - fd
+  popq %r10         # %r10 - fd
+
   popq %rdi
   
   movq %rdi, %r9    # %r9 - codeword
