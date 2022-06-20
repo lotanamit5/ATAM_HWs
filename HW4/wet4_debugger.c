@@ -19,17 +19,17 @@
 #define MIN_ARG_C 3
 #define MAGIC_LENGTH 4
 #define ET_EXEC 2
-#define SHT_SYMTAB 0x2
-#define SHT_STRTAB 0x3
+#define SHT_SYMTAB 2
+#define SHT_STRTAB 3
 #define STB_GLOBAL 1
 
 typedef enum
 {
-    ELF_OPEN_FAIL,
-    ELF_NOT_EXECUTABLE,
-    ELF_NOT_FOUND,
-    ELF_UND,
-    ELF_SUCCESS,
+    ELF_OPEN_FAIL = -1,
+    ELF_NOT_EXECUTABLE = -2,
+    ELF_NOT_FOUND = -3,
+    ELF_UND = -4,
+    ELF_SUCCESS = 0,
 } elf_res;
 
 // pid_t run_target(const char *programname)
@@ -227,12 +227,11 @@ typedef enum
 // {
 // }
 
-
-int TryLoadHdr(int fd, Elf64_Ehdr *hdr)
+int TryLoadHdr(int fd, Elf64_Ehdr *hdr_to_load)
 {
-    int read_all = (read(fd, hdr, sizeof(*hdr)) == sizeof(*hdr));
-    
-    int magic_match = !memcmp("\x7f\x45\x4c\x46", hdr, MAGIC_LENGTH);
+    int read_all = (read(fd, hdr_to_load, sizeof(*hdr_to_load)) == sizeof(*hdr_to_load));
+
+    int magic_match = !memcmp("\x7f\x45\x4c\x46", hdr_to_load, MAGIC_LENGTH);
     return read_all && magic_match;
 }
 
@@ -284,11 +283,13 @@ int TryGetSectionHeader(int fd, Elf64_Ehdr *hdr, char *section_names, char *shdr
     return found;
 }
 
-int funcExist(int fd, Elf64_Ehdr *hdr, Elf64_Shdr *symtab_hdr, Elf64_Shdr *strtab_hdr,
-              Elf64_Sym *symbol_entry, char *func_name)
+int funcExist(int fd, Elf64_Ehdr *hdr, char *func_name, Elf64_Sym *symbol_to_fill)
 {
     int num_symbols;
     char *section_names, *symbol_names;
+    Elf64_Shdr *symtab_hdr, *strtab_hdr;
+    symtab_hdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+    strtab_hdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
 
     if (!TryGetSectionNames(fd, hdr, &section_names))
         return 0; // could not load section header string table
@@ -320,12 +321,12 @@ int funcExist(int fd, Elf64_Ehdr *hdr, Elf64_Shdr *symtab_hdr, Elf64_Shdr *strta
     num_symbols = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
     for (int i = 0; i < num_symbols; i++)
     {
-        if (read(fd, symbol_entry, symtab_hdr->sh_entsize) != symtab_hdr->sh_entsize)
+        if (read(fd, symbol_to_fill, symtab_hdr->sh_entsize) != symtab_hdr->sh_entsize)
         {
             // Could not read symbol entry
             return 0;
         }
-        if (!strcmp(symbol_names + symbol_entry->st_name, func_name))
+        if (!strcmp(symbol_names + symbol_to_fill->st_name, func_name))
         {
             // The symbol exist
             free(section_names);
@@ -347,8 +348,6 @@ int isGlobal(int fd, Elf64_Sym *symbol_entry)
 elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 {
     Elf64_Ehdr hdr;
-    Elf64_Shdr symtab_hdr;
-    Elf64_Shdr strtab_hdr;
     Elf64_Sym symbol_entry;
 
     int fd = open(prog_name, O_RDONLY);
@@ -364,7 +363,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         close(fd);
         return ELF_NOT_EXECUTABLE;
     }
-    if (!funcExist(fd, &hdr, &symtab_hdr, &strtab_hdr, &symbol_entry, func_name))
+    if (!funcExist(fd, &hdr, func_name, &symbol_entry))
     {
         close(fd);
         return ELF_NOT_FOUND;
@@ -400,7 +399,7 @@ int main(int argc, char **argv)
     // we are passing its args aswell (they are right after him
     // in the original 'argv' array).
     prog_name = argv[2];
-    
+
     /* USE TO TEST 1-3
     char * tst_func_name = "foo";
     char * tst_prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
