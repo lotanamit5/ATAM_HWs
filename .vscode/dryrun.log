@@ -1,6 +1,6 @@
 make --dry-run --always-make --keep-going --print-directory
-make: Entering directory '/home/student/Desktop/ATAM/ATAM_HWs'
-make: Leaving directory '/home/student/Desktop/ATAM/ATAM_HWs'
+make: Entering directory '/mnt/c/Users/lotan/VSCode/ATAM_HWs'
+make: Leaving directory '/mnt/c/Users/lotan/VSCode/ATAM_HWs'
  
 make: *** No targets specified and no makefile found.  Stop.
 
