@@ -338,60 +338,66 @@ int TryGetSectionHeader(int fd, Elf64_Ehdr *hdr, char *section_names, char *shdr
     return found;
 }
 
+// returns the index of the symbol in the symtab or -1 if not found
 int TryGetSymbol(int fd, Elf64_Shdr *symtab, char *func_name, char *symbol_names, Elf64_Sym *symbol_to_fill)
 {
     // Go to symbol table
-    lseek(fd, symtab_hdr->sh_offset, SEEK_SET);
+    lseek(fd, symtab->sh_offset, SEEK_SET);
     // Look for func's symbol
-    int num_symbols = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
+    int num_symbols = symtab->sh_size / symtab->sh_entsize;
     for (int i = 0; i < num_symbols; i++)
     {
-        if (read(fd, symbol_to_fill, symtab_hdr->sh_entsize) != symtab_hdr->sh_entsize)
+        if (read(fd, symbol_to_fill, symtab->sh_entsize) != symtab->sh_entsize)
         {
             // Could not read symbol entry
-            return 0;
+            return -1;
         }
         if (!strcmp(symbol_names + symbol_to_fill->st_name, func_name))
         {
-            return 1;
+            return i;
         }
     }
     // The symbol is not in the symtab
-    return 0;
+    return -1;
 }
 
-int FindSymbol(int fd, Elf64_Ehdr *hdr, char *func_name, Elf64_Sym *symbol_to_fill)
+// returns the index of the symbol in the symtab or -1 if not found
+// fills the symbol_to_fill with the symbol found
+int FindSymbol(int fd, Elf64_Ehdr *hdr, char *func_name, Elf64_Sym *symbol_to_fill, int is_dynamic)
 {
     int num_symbols;
     char *section_names, *symbol_names;
-    Elf64_Shdr *symtab_hdr, *strtab_hdr, *str_tbl;
-    symtab_hdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
-    strtab_hdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
-    str_tbl = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+    Elf64_Shdr *symtab, *strtab, *shdtstrtab;
+    symtab = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+    strtab = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+    shdtstrtab = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+
+    char *symtab_name = is_dynamic ? ".dynsym" : ".symtab";
+    char *strtab_name = is_dynamic ? ".dynstr" : ".strtab";
 
     // Go to section header table
     lseek(fd, hdr->e_shoff, SEEK_SET);
     // Get section header string table section header
     lseek(fd, hdr->e_shstrndx * sizeof(Elf64_Shdr), SEEK_CUR);
-    if (read(fd, str_tbl, sizeof(Elf64_Shdr)) != sizeof(Elf64_Shdr))
-        return 0; // could not load section header string table
+    if (read(fd, shdtstrtab, sizeof(Elf64_Shdr)) != sizeof(Elf64_Shdr))
+        return -1; // could not load section header string table
 
-    if ((section_names = TryGetShdrAsString(fd, str_tbl)) == NULL)
-        return 0;
+    if ((section_names = TryGetShdrAsString(fd, shdtstrtab)) == NULL)
+        return -1;
 
     // Get symtab and strtab headers
-    if (!TryGetSectionHeader(fd, hdr, section_names, ".symtab", symtab_hdr) ||
-        !TryGetSectionHeader(fd, hdr, section_names, ".strtab", strtab_hdr))
+    if (!TryGetSectionHeader(fd, hdr, section_names, symtab_name, symtab) ||
+        !TryGetSectionHeader(fd, hdr, section_names, strtab_name, strtab))
     {
         // Could not find symtab or strtab
         free(section_names);
-        return 0;
+        return -1;
     }
 
-    if ((symbol_names = TryGetShdrAsString(fd, strtab_hdr)) == NULL)
-        return 0;
+    if ((symbol_names = TryGetShdrAsString(fd, strtab)) == NULL)
+        return -1;
 
-    return TryGetSymbol(fd, symtab_hdr, func_name, symbol_names, symbol_to_fill);
+    return TryGetSymbol(fd, symtab, func_name, symbol_names, symbol_to_fill);
 }
 
 int isGlobal(int fd, Elf64_Sym *symbol_entry)
@@ -417,7 +423,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         close(fd);
         return ELF_NOT_EXECUTABLE;
     }
-    if (!FindSymbol(fd, &hdr, func_name, &symbol_entry))
+    if (FindSymbol(fd, &hdr, func_name, &symbol_entry, 0) < 0)
     {
         close(fd);
         return ELF_NOT_FOUND;
@@ -432,6 +438,12 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         *func_addr = symbol_entry.st_value;
     else
     {
+        int dyn_index = FindSymbol(fd, &hdr, func_name, &symbol_entry, 0);
+        if (dyn_index < 0)
+            return ELF_NOT_FOUND;
+        //get .rela section
+        //find dyn_index in symbol field
+        //return offset of this row
         // TryGetSectionHeader(fd, hdr.e_shoff, hdr.e_shnum, )
     }
     *func_addr = 1;
