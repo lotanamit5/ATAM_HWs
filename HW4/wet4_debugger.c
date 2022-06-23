@@ -298,14 +298,15 @@ int isExecutable(Elf64_Ehdr *hdr)
 
 int LoadHdr(int fd, Elf64_Ehdr *hdr)
 {
-    hdr = (Elf64_Ehdr *)malloc(sizeof(Elf64_Ehdr));
     if (hdr == NULL)
         return 0;
     if (read(fd, hdr, sizeof(*hdr)) != sizeof(*hdr))
         return 0;
-
-    if (!memcmp("\x7f\x45\x4c\x46", hdr, MAGIC_LENGTH))
+    if (memcmp("\x7f\x45\x4c\x46", hdr, MAGIC_LENGTH))
+    {
+        free(hdr);
         return 0;
+    }
 
     return 1;
 }
@@ -314,7 +315,8 @@ char *GetSectionAsString(int fd, Elf64_Shdr *Shdr)
 {
     lseek(fd, Shdr->sh_offset, SEEK_SET);
     char *s = (char *)malloc(Shdr->sh_size);
-    if (read(fd, s, Shdr->sh_size) != Shdr->sh_size)
+    int n = read(fd, s, Shdr->sh_size);
+    if (n != Shdr->sh_size)
     {
         // Could not read section
         free(s);
@@ -354,12 +356,14 @@ int GetSymbol(int fd, Elf64_Shdr *symtab, char *func_name, char *symbol_names, E
     int num_symbols = symtab->sh_size / symtab->sh_entsize;
     for (int i = 0; i < num_symbols; i++)
     {
-        if (read(fd, symbol_to_fill, symtab->sh_entsize) != symtab->sh_entsize)
+        int n = read(fd, symbol_to_fill, symtab->sh_entsize);
+        if (n != symtab->sh_entsize)
         {
             // Could not read symbol en
             return -1;
         }
-        if (!strcmp(symbol_names + symbol_to_fill->st_name, func_name))
+        char *temp = symbol_names + symbol_to_fill->st_name;
+        if (!strcmp(temp, func_name))
         {
             return i;
         }
@@ -368,7 +372,7 @@ int GetSymbol(int fd, Elf64_Shdr *symtab, char *func_name, char *symbol_names, E
     return -1;
 }
 
-int LoadShdrsNames(int fd, Elf64_Ehdr *hdr, char *shdrs_names)
+int LoadShdrsNames(int fd, Elf64_Ehdr *hdr, char **shdrs_names)
 {
     Elf64_Shdr *shdrs_strtab = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
     // Go to section header table
@@ -380,7 +384,7 @@ int LoadShdrsNames(int fd, Elf64_Ehdr *hdr, char *shdrs_names)
         free(shdrs_strtab);
         return 0; // could not load section header string table
     }
-    if ((shdrs_names = GetSectionAsString(fd, shdrs_strtab)) == NULL)
+    if ((*shdrs_names = GetSectionAsString(fd, shdrs_strtab)) == NULL)
     {
         free(shdrs_strtab);
         return 0;
@@ -391,7 +395,8 @@ int LoadShdrsNames(int fd, Elf64_Ehdr *hdr, char *shdrs_names)
 
 // returns the index of the symbol in the symtab or -1 if not found
 // fills the symbol_to_fill with the symbol found
-int FindSymbol(int fd, Elf64_Ehdr *hdr, char *func_name, Elf64_Sym *symbol_to_fill, int is_dynamic, char *shdrs_names)
+int FindSymbol(int fd, Elf64_Ehdr *hdr, char *func_name,
+               Elf64_Sym *symbol_to_fill, int is_dynamic, char *shdrs_names)
 {
     int num_symbols;
     char *symbol_names;
@@ -403,21 +408,26 @@ int FindSymbol(int fd, Elf64_Ehdr *hdr, char *func_name, Elf64_Sym *symbol_to_fi
     char *symtab_name = is_dynamic ? ".dynsym" : ".symtab";
     char *strtab_name = is_dynamic ? ".dynstr" : ".strtab";
 
-    if (!LoadShdrsNames(fd, hdr, shdrs_names))
-        return -1; // could not load section header string table
-
     // Get symtab and strtab headers
     if (!GetSectionHeader(fd, hdr, shdrs_names, symtab_name, symtab) ||
         !GetSectionHeader(fd, hdr, shdrs_names, strtab_name, strtab))
     {
         // Could not find symtab or strtab
+        free(symtab);
+        free(strtab);
         return -1;
     }
 
     if ((symbol_names = GetSectionAsString(fd, strtab)) == NULL)
+    {
+        free(symtab);
+        free(strtab);
         return -1;
-
-    return GetSymbol(fd, symtab, func_name, symbol_names, symbol_to_fill);
+    }
+    int res = GetSymbol(fd, symtab, func_name, symbol_names, symbol_to_fill);
+    free(symtab);
+    free(strtab);
+    return res;
 }
 
 int isGlobal(int fd, Elf64_Sym *symbol_en)
@@ -437,10 +447,11 @@ int isGlobal(int fd, Elf64_Sym *symbol_en)
         if (shdrs_names != NULL)   \
             free(shdrs_names);     \
         if (reloc_shdr != NULL)    \
-            free(shdrs_names);     \
+            free(reloc_shdr);      \
         if (reloc_section != NULL) \
-            free(shdrs_names);     \
-    } while (0)
+            free(reloc_section);   \
+    } while (0);                   \
+    return status;
 
 elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 {
@@ -448,11 +459,20 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
     Elf64_Sym *symbol = NULL;
     Elf64_Shdr *reloc_shdr = NULL;
     char *shdrs_names = NULL, *reloc_section = NULL;
-    int fd = -1;
 
-    if ((fd = open(prog_name, O_RDONLY)) == -1 ||
-        !LoadHdr(fd, hdr) ||
-        !LoadShdrsNames(fd, hdr, shdrs_names))
+    int fd = open(prog_name, O_RDONLY);
+    if (fd == -1)
+    {
+        FINISH(ELF_OPEN_FAIL);
+    }
+
+    hdr = (Elf64_Ehdr *)malloc(sizeof(Elf64_Ehdr));
+    if (!LoadHdr(fd, hdr))
+    {
+        FINISH(ELF_OPEN_FAIL);
+    }
+
+    if (!LoadShdrsNames(fd, hdr, &shdrs_names))
     {
         FINISH(ELF_OPEN_FAIL);
     }
@@ -461,7 +481,9 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
     {
         FINISH(ELF_NOT_EXECUTABLE);
     }
-    if (FindSymbol(fd, hdr, func_name, symbol, 0, shdrs_names) < 0)
+    symbol = (Elf64_Sym *)malloc(sizeof(Elf64_Sym));
+    if (!(FindSymbol(fd, hdr, func_name, symbol, 0, shdrs_names) >= 0 ||
+          FindSymbol(fd, hdr, func_name, symbol, 1, shdrs_names) >= 0))
     {
         FINISH(ELF_NOT_FOUND);
     }
@@ -481,7 +503,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         }
 
         Elf64_Shdr *reloc_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
-        if ((reloc_section = GetSectionAsString(fd, reloc_section)) == NULL)
+        if ((reloc_section = GetSectionAsString(fd, reloc_shdr)) == NULL)
         {
             FINISH(ELF_OPEN_FAIL);
         }
@@ -496,24 +518,26 @@ int main(int argc, char **argv)
     pid_t child_pid;
     char *func_name, *prog_name;
     long func_addr;
-    if (argc < MIN_ARG_C)
-    {
-        fprintf(stderr, "PRF:: Not enough args");
-        exit(1);
-    }
+    // if (argc < MIN_ARG_C)
+    // {
+    //     fprintf(stderr, "PRF:: Not enough args");
+    //     exit(1);
+    // }
     func_name = argv[1];
     // 'run_target' is using 'execl' so by passing 'prog_name'
     // we are passing its args aswell (they are right after him
     // in the original 'argv' array).
     prog_name = argv[2];
 
-    /* USE TO TEST 1-3
-    char * tst_func_name = "foo";
-    char * tst_prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
+    char *tst_prog_name = "/mnt/c/Users/lotan/VSCode/ATAM_HWs/HW4/basic_test.out";
+    char *tst_func_name = "foo";
     elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
-    */
+    char *tst_func_name = "add";
+    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
+    char *tst_func_name = "printf";
+    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
 
-    elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
+    // elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
     switch (res)
     {
     case ELF_OPEN_FAIL:
