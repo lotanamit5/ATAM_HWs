@@ -320,8 +320,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         FINISH(ELF_NOT_EXECUTABLE);
     }
     symbol = (Elf64_Sym *)malloc(sizeof(Elf64_Sym));
-    if (!(FindSymbol(fd, hdr, func_name, symbol, 0, shdrs_names) >= 0 ||
-          FindSymbol(fd, hdr, func_name, symbol, 1, shdrs_names) >= 0))
+    if (FindSymbol(fd, hdr, func_name, symbol, 0, shdrs_names) < 0)
     {
         FINISH(ELF_NOT_FOUND);
     }
@@ -356,20 +355,12 @@ int main(int argc, char **argv)
     pid_t child_pid;
     char *func_name, *prog_name;
     long func_addr;
-<<<<<<< HEAD
-    // if (argc < MIN_ARG_C)
-    // {
-    //     fprintf(stderr, "PRF:: Not enough args");
-    //     exit(1);
-    // }
-=======
     /*
     if (argc < MIN_ARG_C)
     {
         fprintf(stderr, "PRF:: Not enough args");
         exit(1);
     }
->>>>>>> d545d1771a474fbe039bcbc9d7b1c688d679bf48
     func_name = argv[1];
     // 'run_target' is using 'execl' so by passing 'prog_name'
     // we are passing its args aswell (they are right after him
@@ -377,7 +368,6 @@ int main(int argc, char **argv)
     prog_name = argv[2];
     */
 
-<<<<<<< HEAD
     char *tst_prog_name = "/mnt/c/Users/lotan/VSCode/ATAM_HWs/HW4/basic_test.out";
     char *tst_func_name = "foo";
     elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
@@ -387,15 +377,6 @@ int main(int argc, char **argv)
     elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
 
     // elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
-=======
-    // USE TO TEST 
-    char * tst_func_name = "foo";
-    char * tst_prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
-    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
-    
-
-    //elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
->>>>>>> d545d1771a474fbe039bcbc9d7b1c688d679bf48
     switch (res)
     {
     case ELF_OPEN_FAIL:
