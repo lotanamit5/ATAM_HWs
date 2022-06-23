@@ -227,6 +227,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
 {
     int wait_status;
     struct user_regs_struct regs;
+    unsigned long counter = 0;
 
     // Wait for child to stop on its first instruction
     wait(&wait_status);
@@ -242,25 +243,46 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
     ptrace(PTRACE_CONT, child_pid, NULL, NULL);
     wait(&wait_status);
 
-    while (!WIFEXITED(wait_status) && WIFCONTINUED(wait_status))
+    while (!WIFEXITED(wait_status))
     {
-        // See where the child is now
-        ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
-        printf("DBG: Child stopped at RIP = 0x%x\n", regs.rip);
+        counter++;
 
-        // Remove the breakpoint by restoring the previous data and set rdx = 5
+        // Remove the breakpoint by restoring the previous data
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
         regs.rip -= 1;
-        regs.rdx = 5;
         ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
 
-        // We want to restore break point
+        // Call func
         if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
         {
             perror("ptrace");
             return;
         }
+        // Get return addres stored on the stack
+        ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
+        unsigned long long stack_addr = regs.rsp;
+        unsigned long long next_addr = *(unsigned long long *)stack_addr;
 
+        // Add breaking point at return addres- next line in c program
+        unsigned long next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
+        unsigned long next_trap = (next_instr & 0xFFFFFFFFFFFFFF00) | 0xCC;
+        ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_trap);
+
+        // Let the child run to the next instruction
+        ptrace(PTRACE_CONT, child_pid, NULL, NULL);
+        wait(&wait_status);
+
+        // Get return value
+        ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
+        unsigned long long return_value = regs.rax;
+        printf("PRF:: run #%x returned with %x\n", counter, return_value);
+
+        // Remove the second breakpoint by restoring the previous data
+        ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_instr);
+        regs.rip -= 1;
+        ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
+
+        // Re-add the first breakpoint
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data_trap);
 
         // Let the child run to the breakpoint and wait for it to reach it
