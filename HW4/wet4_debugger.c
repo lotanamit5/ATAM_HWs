@@ -438,13 +438,15 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         *func_addr = symbol_entry.st_value;
     else
     {
-        int dyn_index = FindSymbol(fd, &hdr, func_name, &symbol_entry, 0);
+        int dyn_index = FindSymbol(fd, &hdr, func_name, &symbol_entry, 1);
         if (dyn_index < 0)
             return ELF_NOT_FOUND;
-        //get .rela section
-        //find dyn_index in symbol field
-        //return offset of this row
-        // TryGetSectionHeader(fd, hdr.e_shoff, hdr.e_shnum, )
+
+        Elf64_Shdr *rela_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+        // get .rela section
+        // find dyn_index in symbol field
+        // return offset of this row
+        //  TryGetSectionHeader(fd, hdr.e_shoff, hdr.e_shnum, )
     }
     *func_addr = 1;
     return ELF_SUCCESS;
