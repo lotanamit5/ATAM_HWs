@@ -61,168 +61,6 @@ pid_t run_target(const char *programname)
     }
 }
 
-void run_breakpoint_debugger(pid_t child_pid)
-{
-    int wait_status;
-    struct user_regs_struct regs;
-
-    // Wait for child to stop on its first instruction
-    wait(&wait_status);
-
-    // Look at the word at the address we're interested in
-    unsigned long addr = 0x4000cd;
-    unsigned long data = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, NULL);
-    printf("DBG: Original data at 0x%x: 0x%x\n", addr, data);
-
-    // Write the trap instruction 'int 3' into the address
-    unsigned long data_trap = (data & 0xFFFFFFFFFFFFFF00) | 0xCC;
-    ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data_trap);
-
-    // Let the child run to the breakpoint and wait for it to reach it
-    ptrace(PTRACE_CONT, child_pid, NULL, NULL);
-
-    wait(&wait_status);
-    // See where the child is now
-    ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
-    printf("DBG: Child stopped at RIP = 0x%x\n", regs.rip);
-
-    // Remove the breakpoint by restoring the previous data and set rdx = 5
-    ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
-    regs.rip -= 1;
-    regs.rdx = 5;
-    ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
-
-    // The child can continue running now
-    ptrace(PTRACE_CONT, child_pid, 0, 0);
-
-    wait(&wait_status);
-    if (WIFEXITED(wait_status))
-    {
-        printf("DBG: Child exited\n");
-    }
-    else
-    {
-        printf("DBG: Unexpected signal\n");
-    }
-}
-
-void run_syscall_debugger(pid_t child_pid)
-{
-    int wait_status;
-
-    // Wait for child to stop on its first instruction
-    wait(&wait_status);
-
-    struct user_regs_struct regs;
-    // Enter next system call
-    ptrace(PTRACE_SYSCALL, child_pid, NULL, NULL);
-    wait(&wait_status);
-
-    ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
-    regs.rdx = 5;
-    ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
-
-    // Run system call and stop on exit
-    ptrace(PTRACE_SYSCALL, child_pid, NULL, NULL);
-    wait(&wait_status);
-
-    ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
-    printf("DBG: the syscall returned: %d\n", regs.rax);
-
-    // The child can continue running now
-    ptrace(PTRACE_CONT, child_pid, 0, 0);
-    wait(&wait_status);
-    if (WIFEXITED(wait_status))
-    {
-        printf("DBG: Child exited\n");
-    }
-    else
-    {
-        printf("DBG: Unexpected signal\n");
-    }
-}
-
-void run_regs_override_debugger(pid_t child_pid)
-{
-    int wait_status;
-
-    // Wait for child to stop on its first instruction
-    wait(&wait_status);
-    while (WIFSTOPPED(wait_status))
-    {
-        struct user_regs_struct regs;
-
-        ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
-        regs.rdx = 5;
-        ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
-
-        // Make the child execute another instruction
-        if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
-        {
-            perror("ptrace");
-            return;
-        }
-
-        // Wait for child to stop on its next instruction
-        wait(&wait_status);
-    }
-}
-
-void run_instruction_debugger(pid_t child_pid)
-{
-    int wait_status;
-    int icounter = 0;
-
-    // Wait for child to stop on its first instruction
-    wait(&wait_status);
-    while (WIFSTOPPED(wait_status))
-    {
-        icounter++;
-        struct user_regs_struct regs;
-
-        ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
-        unsigned long instr = ptrace(PTRACE_PEEKTEXT, child_pid, regs.rip, NULL);
-
-        printf("DBG: icounter = %u.  RIP = 0x%x.  instr = 0x%08x\n",
-               icounter, regs.rip, instr);
-
-        // Make the child execute another instruction
-        if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
-        {
-            perror("ptrace");
-            return;
-        }
-
-        // Wait for child to stop on its next instruction
-        wait(&wait_status);
-    }
-}
-
-void run_counter_debugger(pid_t child_pid)
-{
-    int wait_status;
-    int icounter = 0;
-
-    // Wait for child to stop on its first instruction
-    wait(&wait_status);
-    while (WIFSTOPPED(wait_status))
-    {
-        icounter++;
-
-        // Make the child execute another instruction
-        if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
-        {
-            perror("ptrace");
-            return;
-        }
-
-        // Wait for child to stop on its next instruction
-        wait(&wait_status);
-    }
-
-    printf("DBG: the child executed %d instructions\n", icounter);
-}
-
 void run_revivo_debugger(pid_t child_pid, unsigned long addr)
 {
     int wait_status;
@@ -233,7 +71,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
     wait(&wait_status);
 
     unsigned long data = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, NULL);
-    printf("DBG: Original data at 0x%x: 0x%x\n", addr, data);
+    printf("DBG: Original data at 0x%lu: 0x%lu\n", addr, data);
 
     // Write the trap instruction 'int 3' into the address
     unsigned long data_trap = (data & 0xFFFFFFFFFFFFFF00) | 0xCC;
@@ -261,7 +99,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         // Get return addres stored on the stack
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
         unsigned long long stack_addr = regs.rsp;
-        unsigned long long next_addr = *(unsigned long long *)stack_addr;
+        unsigned long long next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
 
         // Add breaking point at return addres- next line in c program
         unsigned long next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
@@ -275,7 +113,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         // Get return value
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
         unsigned long long return_value = regs.rax;
-        printf("PRF:: run #%x returned with %x\n", counter, return_value);
+        printf("PRF:: run #%lu returned with %llu\n", counter, return_value);
 
         // Remove the second breakpoint by restoring the previous data
         ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_instr);
@@ -518,17 +356,28 @@ int main(int argc, char **argv)
     pid_t child_pid;
     char *func_name, *prog_name;
     long func_addr;
+<<<<<<< HEAD
     // if (argc < MIN_ARG_C)
     // {
     //     fprintf(stderr, "PRF:: Not enough args");
     //     exit(1);
     // }
+=======
+    /*
+    if (argc < MIN_ARG_C)
+    {
+        fprintf(stderr, "PRF:: Not enough args");
+        exit(1);
+    }
+>>>>>>> d545d1771a474fbe039bcbc9d7b1c688d679bf48
     func_name = argv[1];
     // 'run_target' is using 'execl' so by passing 'prog_name'
     // we are passing its args aswell (they are right after him
     // in the original 'argv' array).
     prog_name = argv[2];
+    */
 
+<<<<<<< HEAD
     char *tst_prog_name = "/mnt/c/Users/lotan/VSCode/ATAM_HWs/HW4/basic_test.out";
     char *tst_func_name = "foo";
     elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
@@ -538,6 +387,15 @@ int main(int argc, char **argv)
     elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
 
     // elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
+=======
+    // USE TO TEST 
+    char * tst_func_name = "foo";
+    char * tst_prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
+    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
+    
+
+    //elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
+>>>>>>> d545d1771a474fbe039bcbc9d7b1c688d679bf48
     switch (res)
     {
     case ELF_OPEN_FAIL:
@@ -555,8 +413,11 @@ int main(int argc, char **argv)
     }
     assert(res == ELF_SUCCESS);
 
-    child_pid = run_target(prog_name);
-    // run_revivo_debugger(child_pid, func_addr);
+    // for testing only
+    func_addr = 400497;
+    /////////////
+    child_pid = run_target(tst_prog_name);
+    run_revivo_debugger(child_pid, func_addr);
 
     return 0;
 }
