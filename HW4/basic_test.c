@@ -11,13 +11,16 @@ int foo(int a, int b)
 }
 int main()
 {
-    // foo(3, 4);
-
-    int sum = add(1, 2);
-    printf("sum: %d\n", sum);
+    for (size_t i = 0; i < 10; i++)
+    {
+        printf("add returns %d\n", add(i, i+1));
+    }
+    
+    // int sum = add(1, 2);
+    // printf("sum: %d\n", sum);
 
     soVar = 5;
     addSoVar(3);
-    printf("soVar: %d\n", soVar);
+    // printf("soVar: %d\n", soVar);
     return 0;
 }

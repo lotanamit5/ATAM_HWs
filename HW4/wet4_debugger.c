@@ -68,7 +68,8 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
     unsigned long counter = 0;
 
     // Wait for child to stop on its first instruction
-    wait(&wait_status);
+    waitpid(child_pid, &wait_status, 0);
+    // wait(&wait_status);
 
     unsigned long data = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, NULL);
     printf("DBG: Original data at 0x%lu: 0x%lu\n", addr, data);
@@ -79,27 +80,29 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
 
     // Let the child run to the breakpoint and wait for it to reach it
     ptrace(PTRACE_CONT, child_pid, NULL, NULL);
-    wait(&wait_status);
+    waitpid(child_pid, &wait_status, 0);
 
+    ///// FOR SOME REASON WAIT IS ALWAYS 0! /////
     while (!WIFEXITED(wait_status))
     {
         counter++;
 
         // Remove the breakpoint by restoring the previous data
-        ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
-        regs.rip -= 1;
-        ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
-
-        // Call func
-        if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
-        {
-            perror("ptrace");
-            return;
-        }
-        // Get return addres stored on the stack
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
+        regs.rip -= 1;
         unsigned long long stack_addr = regs.rsp;
         unsigned long long next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
+        ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
+        ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
+
+        // // Call func
+        // if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
+        // {
+        //     perror("ptrace");
+        //     return;
+        // }
+        // Get return addres stored on the stack
+        // ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
 
         // Add breaking point at return addres- next line in c program
         unsigned long next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
@@ -108,7 +111,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
 
         // Let the child run to the next instruction
         ptrace(PTRACE_CONT, child_pid, NULL, NULL);
-        wait(&wait_status);
+        waitpid(child_pid, &wait_status, 0);
 
         // Get return value
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
@@ -116,16 +119,16 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         printf("PRF:: run #%lu returned with %llu\n", counter, return_value);
 
         // Remove the second breakpoint by restoring the previous data
-        ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_instr);
         regs.rip -= 1;
         ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
+        ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_instr);
 
         // Re-add the first breakpoint
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data_trap);
 
         // Let the child run to the breakpoint and wait for it to reach it
         ptrace(PTRACE_CONT, child_pid, NULL, NULL);
-        wait(&wait_status);
+        waitpid(child_pid, &wait_status, 0);
     }
 }
 
@@ -167,7 +170,6 @@ int GetSectionHeader(int fd, Elf64_Ehdr *hdr, char *section_names, char *shdr_na
                      Elf64_Shdr *shdr_to_fill)
 {
     Elf64_Shdr *current_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
-    // Get symtab and strtab headers
     lseek(fd, hdr->e_shoff, SEEK_SET);
     int found = 0;
     for (int i = 0; i < hdr->e_shnum; i++)
@@ -176,6 +178,7 @@ int GetSectionHeader(int fd, Elf64_Ehdr *hdr, char *section_names, char *shdr_na
             break; // Could not read section header
         if (!strcmp(section_names + current_shdr->sh_name, shdr_name))
         {
+            printf("DEBUG: looked for: %s, found: %s\n", shdr_name, section_names + current_shdr->sh_name);
             memcpy(shdr_to_fill, current_shdr, sizeof(Elf64_Shdr));
             found = 1;
             break;
@@ -203,7 +206,43 @@ int GetSymbol(int fd, Elf64_Shdr *symtab, char *func_name, char *symbol_names, E
         char *temp = symbol_names + symbol_to_fill->st_name;
         if (!strcmp(temp, func_name))
         {
+            printf("DEBUG: looked for: %s, found: %s\n", func_name, temp);
             return i;
+        }
+    }
+    // The symbol is not in the symtab
+    return -1;
+}
+
+Elf64_Addr getRelaAddr(int fd, Elf64_Shdr *reloc_shdr, int dyn_index)
+{
+    /*
+    if ((reloc_section = GetSectionAsString(fd, reloc_shdr)) == NULL)
+    {
+        FINISH(ELF_OPEN_FAIL);
+    }
+    Elf64_Rela *relocations = (Elf64_Rela *)reloc_section;
+    *func_addr = relocations[dyn_index].r_offset;
+    */
+
+    Elf64_Rela rela_entry;
+    // Go to rela table
+    lseek(fd, reloc_shdr->sh_offset, SEEK_SET);
+    // Look for func's symbol
+    int num_symbols = reloc_shdr->sh_size / reloc_shdr->sh_entsize;
+    for (int i = 0; i < num_symbols; i++)
+    {
+        int n = read(fd, (void *)&rela_entry, reloc_shdr->sh_entsize);
+        if (n != reloc_shdr->sh_entsize)
+        {
+            // Could not read rela entry
+            return -1;
+        }
+        int index = ELF64_R_SYM(rela_entry.r_info);
+        if (index == dyn_index)
+        {
+            printf("DEBUG: found: %d, dynamic index\n", dyn_index);
+            return rela_entry.r_offset;
         }
     }
     // The symbol is not in the symtab
@@ -338,7 +377,15 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         {
             FINISH(ELF_NOT_FOUND);
         }
+        reloc_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
+        if (!GetSectionHeader(fd, hdr, shdrs_names, ".rela.plt", reloc_shdr))
+        {
+            // Lotan will hundle;
+            printf("Could not find .rela\n");
+        }
+        *func_addr = getRelaAddr(fd, reloc_shdr, dyn_index);
 
+        /*
         Elf64_Shdr *reloc_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
         if ((reloc_section = GetSectionAsString(fd, reloc_shdr)) == NULL)
         {
@@ -346,6 +393,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         }
         Elf64_Rela *relocations = (Elf64_Rela *)reloc_section;
         *func_addr = relocations[dyn_index].r_offset;
+        */
     }
     FINISH(ELF_SUCCESS);
 }
@@ -353,9 +401,9 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
 int main(int argc, char **argv)
 {
     pid_t child_pid;
-    char *func_name, *prog_name;
     long func_addr;
-    /*
+
+    char *func_name, *prog_name;
     if (argc < MIN_ARG_C)
     {
         fprintf(stderr, "PRF:: Not enough args");
@@ -366,21 +414,17 @@ int main(int argc, char **argv)
     // we are passing its args aswell (they are right after him
     // in the original 'argv' array).
     prog_name = argv[2];
+
+    /*
+    prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
+    func_name = "add";
     */
 
-    char *tst_prog_name = "/mnt/c/Users/lotan/VSCode/ATAM_HWs/HW4/basic_test.out";
-    char *tst_func_name = "foo";
-    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
-    char *tst_func_name = "add";
-    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
-    char *tst_func_name = "printf";
-    elf_res res = getFuncAddr(tst_prog_name, tst_func_name, &func_addr);
-
-    // elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
+    elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
     switch (res)
     {
     case ELF_OPEN_FAIL:
-        printf("Elf open failed");
+        printf("Elf open failed\n");
         exit(1);
     case ELF_NOT_EXECUTABLE:
         printf("PRF:: %s not an executable! :(\n", prog_name);
@@ -394,10 +438,7 @@ int main(int argc, char **argv)
     }
     assert(res == ELF_SUCCESS);
 
-    // for testing only
-    func_addr = 400497;
-    /////////////
-    child_pid = run_target(tst_prog_name);
+    child_pid = run_target(prog_name);
     run_revivo_debugger(child_pid, func_addr);
 
     return 0;

@@ -1,0 +1,19 @@
+Compiling "basic_test.out":
+    1. gcc -shared -fPIC -o basic_so.so basic_so.c
+    2. sudo mv basic_so.so /usr/lib/
+    3. gcc -no-pie -o basic_test.out basic_test.c /usr/lib/basic_so.so -Wl,-z,now
+
+Compiling Revivo's debugger:
+    1. gcc -g wet4_debugger.c -o revivo.o
+
+Run Revivo:
+    1. ./revivo.o add basic_test.out
+
+Gdb Revivo:
+    1. gdb --args revivo.o add basic_test.out
+
+Gdb:
+    1. To debug child: 
+        set follow-fork-mode child
+    2. "break run_target"
+    3. "layout regs"
