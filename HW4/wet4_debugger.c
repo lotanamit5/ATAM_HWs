@@ -61,15 +61,24 @@ pid_t run_target(const char *programname)
     }
 }
 
-void run_revivo_debugger(pid_t child_pid, unsigned long addr)
+void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_global)
 {
     int wait_status;
     struct user_regs_struct regs;
-    unsigned long counter = 0;
+    int counter = 0;
 
     // Wait for child to stop on its first instruction
     waitpid(child_pid, &wait_status, 0);
     // wait(&wait_status);
+
+    // If symbol is global-
+    // get real addres and update trap
+    if (is_global)
+    {
+        printf("DBG: GOT addres: 0x%lu\n", addr);
+        addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, NULL);
+        printf("DBG: Symbol addres: 0x%lu\n", addr);
+    }
 
     unsigned long data = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, NULL);
     printf("DBG: Original data at 0x%lu: 0x%lu\n", addr, data);
@@ -82,10 +91,9 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
     ptrace(PTRACE_CONT, child_pid, NULL, NULL);
     waitpid(child_pid, &wait_status, 0);
 
-    ///// FOR SOME REASON WAIT IS ALWAYS 0! /////
     while (!WIFEXITED(wait_status))
     {
-        counter++;
+        printf("PRF:: break num #%d\n", counter);
 
         // Remove the breakpoint by restoring the previous data
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
@@ -94,6 +102,9 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         unsigned long long next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
         ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
+
+        
+        counter++;
 
         // // Call func
         // if (ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL) < 0)
@@ -104,7 +115,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         // Get return addres stored on the stack
         // ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
 
-        // Add breaking point at return addres- next line in c program
+        // Add break point at return addres- next line in c program
         unsigned long next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
         unsigned long next_trap = (next_instr & 0xFFFFFFFFFFFFFF00) | 0xCC;
         ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_trap);
@@ -116,7 +127,7 @@ void run_revivo_debugger(pid_t child_pid, unsigned long addr)
         // Get return value
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
         unsigned long long return_value = regs.rax;
-        printf("PRF:: run #%lu returned with %llu\n", counter, return_value);
+        printf("PRF:: run #%d returned with %llu\n", counter, return_value);
 
         // Remove the second breakpoint by restoring the previous data
         regs.rip -= 1;
@@ -377,6 +388,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, long *func_addr)
         {
             FINISH(ELF_NOT_FOUND);
         }
+
         reloc_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
         if (!GetSectionHeader(fd, hdr, shdrs_names, ".rela.plt", reloc_shdr))
         {
@@ -404,6 +416,7 @@ int main(int argc, char **argv)
     long func_addr;
 
     char *func_name, *prog_name;
+    /*
     if (argc < MIN_ARG_C)
     {
         fprintf(stderr, "PRF:: Not enough args");
@@ -414,11 +427,10 @@ int main(int argc, char **argv)
     // we are passing its args aswell (they are right after him
     // in the original 'argv' array).
     prog_name = argv[2];
+    */
 
-    /*
     prog_name = "/home/student/Desktop/ATAM/ATAM_HWs/HW4/basic_test.out";
     func_name = "add";
-    */
 
     elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
     switch (res)
@@ -439,7 +451,7 @@ int main(int argc, char **argv)
     assert(res == ELF_SUCCESS);
 
     child_pid = run_target(prog_name);
-    run_revivo_debugger(child_pid, func_addr);
+    run_revivo_debugger(child_pid, func_addr, 1);
 
     return 0;
 }

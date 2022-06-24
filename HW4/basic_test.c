@@ -14,6 +14,7 @@ int main()
     for (size_t i = 0; i < 10; i++)
     {
         printf("add returns %d\n", add(i, i+1));
+        // printf("foo returns %d\n", foo(i, i+1));
     }
     
     // int sum = add(1, 2);
