@@ -5,7 +5,7 @@
 
 #define MIN_ARG_C 3
 
-pid_t run_target(const char *programname)
+pid_t run_target(const char *program_name, char **argv)
 {
     pid_t pid;
 
@@ -24,7 +24,7 @@ pid_t run_target(const char *programname)
             exit(1);
         }
         // Replace this process's image with the given program
-        execl(programname, programname, NULL);
+        execv(program_name, argv + 2);
     }
     else
     {
@@ -46,9 +46,6 @@ int main(int argc, char **argv)
         exit(1);
     }
     func_name = argv[1];
-    // 'run_target' is using 'execl' so by passing 'prog_name'
-    // we are passing its args aswell (they are right after him
-    // in the original 'argv' array).
     prog_name = argv[2];
 
     elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
@@ -67,8 +64,8 @@ int main(int argc, char **argv)
         printf("PRF:: %s is not a global symbol! :(\n", func_name);
         exit(1);
     }
-
-    child_pid = run_target(prog_name);
+    
+    child_pid = run_target(prog_name, argv);
     run_revivo_debugger(child_pid, func_addr, res == ELF_DYNAMIC);
 
     return 0;

@@ -5,7 +5,7 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
     int wait_status;
     struct user_regs_struct regs;
     unsigned long data, data_trap, next_instr, next_trap;
-    Elf64_Addr got_entry, next_addr;
+    Elf64_Addr got_entry, next_addr, stack_addr;
     int counter = 0;
 
     // Wait for child to stop on its first instruction
@@ -40,13 +40,8 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
 
         // Get next instruction's addres 
-        // For a static symbol we need to calculate only in the first time.
-        // For a dynamic- in the first (for temp caller in <sym@plt>) and the second.
-        if (counter == 1 || is_dyn && counter <= 2)
-        {
-            Elf64_Addr stack_addr = regs.rsp;
-            next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
-        }
+        stack_addr = regs.rsp;
+        next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
         
         // Add break point at return addres
         next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
