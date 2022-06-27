@@ -1,0 +1,41 @@
+Compiling "basic_test.out":
+    1. gcc -shared -fPIC -o basic_so.so basic_so.c
+    2. sudo mv basic_so.so /usr/lib/
+    3. gcc -no-pie -o basic_test.out basic_test.c /usr/lib/basic_so.so -Wl,-z,now
+    3*. gcc -no-pie -o basic_test.out basic_test.c /usr/lib/basic_so.so -Wl,-zlazy
+
+Compiling Revivo's debugger:
+    1. gcc -g wet4_debugger.c elf_utils.c -o revivo.o
+
+Run Revivo:
+    1. ./revivo.o add basic_test.out
+
+Gdb Revivo:
+    1. gdb --args revivo.o add basic_test.out
+
+Gdb:
+    1. To debug child-
+        set follow-fork-mode child
+    2. "break run_target"
+    3. "layout regs"
+    4. To print full addres from memory-
+        "x/1ag <addres>"
+    
+
+
+Memory status before run according to 
+    >Gdb:
+        0x600fd8:       0x4005a6 <add@plt+6>
+    >Revivo:   DBG: GOT addres: 0x6295512
+                DBG: Symbol addres: 0x4195750
+exists:
+    6295512(dec) = 600FD8(hex)
+    4195750(dec) = 4005A6(hex)
+
+I think that the addres that we get is in GOT and we try to put a break point there- 
+but it's not being ran.
+the plt changes it's value and jumps thought it (jmp *) and this is why 
+A BREAK POINT THERE WILL NOT WORK!
+Maybe we should look for <symbol@plt> instead 
+
+
