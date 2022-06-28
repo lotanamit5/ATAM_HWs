@@ -54,8 +54,10 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
 
         // Get return value
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
-        unsigned long long return_value = regs.rax;
-        printf("PRF:: run #%d returned with %lld\n", counter, return_value);
+        int return_value;
+        return_value = (0x80000000 & regs.rax) ? (-((~regs.rax) + 1)) : regs.rax;
+
+        printf("PRF:: run #%d returned with %d\n", counter, return_value);
 
         // Remove the second breakpoint by restoring the previous data
         regs.rip -= 1;
