@@ -51,8 +51,7 @@ int main(int argc, char **argv)
     elf_res res = getFuncAddr(prog_name, func_name, &func_addr);
     switch (res)
     {
-    case ELF_OPEN_FAIL:
-        printf("Elf open failed\n");
+    case ELF_FAIL:
         exit(1);
     case ELF_NOT_EXECUTABLE:
         printf("PRF:: %s not an executable! :(\n", prog_name);

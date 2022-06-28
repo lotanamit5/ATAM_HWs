@@ -6,8 +6,6 @@
 #define SHT_STRTAB 3
 #define STB_GLOBAL 1
 
-
-
 int isExecutable(Elf64_Ehdr *hdr)
 {
     return hdr->e_type == ET_EXEC;
@@ -90,15 +88,6 @@ int GetSymbol(int fd, Elf64_Shdr *symtab, char *func_name, char *symbol_names, E
 
 Elf64_Addr getRelaAddr(int fd, Elf64_Shdr *reloc_shdr, int dyn_index)
 {
-    /*
-    if ((reloc_section = GetSectionAsString(fd, reloc_shdr)) == NULL)
-    {
-        FINISH(ELF_OPEN_FAIL);
-    }
-    Elf64_Rela *relocations = (Elf64_Rela *)reloc_section;
-    *func_addr = relocations[dyn_index].r_offset;
-    */
-
     Elf64_Rela rela_entry;
     // Go to rela table
     lseek(fd, reloc_shdr->sh_offset, SEEK_SET);
@@ -213,18 +202,18 @@ elf_res getFuncAddr(char *prog_name, char *func_name, Elf64_Addr *func_addr)
     int fd = open(prog_name, O_RDONLY);
     if (fd == -1)
     {
-        FINISH(ELF_OPEN_FAIL);
+        FINISH(ELF_FAIL);
     }
 
     hdr = (Elf64_Ehdr *)malloc(sizeof(Elf64_Ehdr));
     if (!LoadHdr(fd, hdr))
     {
-        FINISH(ELF_OPEN_FAIL);
+        FINISH(ELF_FAIL);
     }
 
     if (!LoadShdrsNames(fd, hdr, &shdrs_names))
     {
-        FINISH(ELF_OPEN_FAIL);
+        FINISH(ELF_FAIL);
     }
 
     if (!isExecutable(hdr))
@@ -257,8 +246,7 @@ elf_res getFuncAddr(char *prog_name, char *func_name, Elf64_Addr *func_addr)
         reloc_shdr = (Elf64_Shdr *)malloc(sizeof(Elf64_Shdr));
         if (!GetSectionHeader(fd, hdr, shdrs_names, ".rela.plt", reloc_shdr))
         {
-            // Lotan will hundle;
-            printf("Could not find .rela\n");
+            FINISH(ELF_FAIL);
         }
         *func_addr = getRelaAddr(fd, reloc_shdr, dyn_index);
         FINISH(ELF_DYNAMIC);

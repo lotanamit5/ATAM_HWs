@@ -21,7 +21,7 @@
 
 typedef enum
 {
-    ELF_OPEN_FAIL,
+    ELF_FAIL,
     ELF_NOT_EXECUTABLE,
     ELF_NOT_FOUND,
     ELF_UND,
