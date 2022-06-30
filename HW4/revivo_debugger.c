@@ -5,7 +5,7 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
     int wait_status;
     struct user_regs_struct regs;
     unsigned long data, data_trap, next_instr, next_trap;
-    Elf64_Addr got_entry, next_addr, stack_addr;
+    Elf64_Addr got_entry, next_addr, stack_next_addr;
     int counter = 0;
 
     // Wait for child to stop on its first instruction
@@ -39,10 +39,10 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
         ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
         ptrace(PTRACE_POKETEXT, child_pid, (void *)addr, (void *)data);
 
-        // Get next instruction's addres 
-        stack_addr = regs.rsp;
-        next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)stack_addr, NULL);
-        
+        // Get next instruction's addres and
+        stack_next_addr = regs.rsp + 8;
+        next_addr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)regs.rsp, NULL);
+
         // Add break point at return addres
         next_instr = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)next_addr, NULL);
         next_trap = (next_instr & 0xFFFFFFFFFFFFFF00) | 0xCC;
@@ -52,8 +52,32 @@ void run_revivo_debugger(pid_t child_pid, Elf64_Addr addr, int is_dyn)
         ptrace(PTRACE_CONT, child_pid, NULL, NULL);
         waitpid(child_pid, &wait_status, 0);
 
-        // Get return value
+        // Check if stack frames "folded back" to first call
         ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
+        while (regs.rsp != stack_next_addr)
+        {
+            // If we got to this addres but the func hasn't finished-
+            // Remove the second breakpoint by restoring the previous data
+            regs.rip -= 1;
+            ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
+            ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_instr);
+            
+            // Let og instruction run
+            ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL);
+			waitpid(child_pid, &wait_status, 0);
+            
+            // bring back second break point (after restoring data)
+            ptrace(PTRACE_POKETEXT, child_pid, (void *)next_addr, (void *)next_trap);
+
+            // Let the child run to the next instruction
+            ptrace(PTRACE_CONT, child_pid, NULL, NULL);
+            waitpid(child_pid, &wait_status, 0);
+
+            // Check if stack frames "folded back" to first call
+            ptrace(PTRACE_GETREGS, child_pid, 0, &regs);
+        }
+
+        // Get return value
         int return_value;
         return_value = (0x80000000 & regs.rax) ? (-((~regs.rax) + 1)) : regs.rax;
 
